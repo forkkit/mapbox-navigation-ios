@@ -1,6 +1,58 @@
 import Foundation
+import MapboxDirections
 
 typealias ImageDownloadCompletionBlock = (UIImage?, Data?, Error?) -> Void
+
+/// The user agent string for any HTTP requests performed directly within this library.
+let userAgent: String = {
+    var components: [String] = []
+    
+    if let appName = Bundle.main.infoDictionary?["CFBundleName"] as? String ?? Bundle.main.infoDictionary?["CFBundleIdentifier"] as? String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        components.append("\(appName)/\(version)")
+    }
+    
+    let libraryBundle: Bundle? = Bundle(for: ImageDownloader.self)
+    
+    if let libraryName = libraryBundle?.infoDictionary?["CFBundleName"] as? String, let navVersion = libraryBundle?.infoDictionary?["CFBundleShortVersionString"] as? String {
+        components.append("\(libraryName)/\(navVersion)")
+    }
+    
+    let directionsLibraryBundle: Bundle? = Bundle(for: Directions.self)
+    
+    if let directionsLibraryName = directionsLibraryBundle?.infoDictionary?["CFBundleName"] as? String, let directionsVersion = directionsLibraryBundle?.infoDictionary?["CFBundleShortVersionString"] as? String {
+        components.append("\(directionsLibraryName)/\(directionsVersion)")
+    }
+    
+    let system: String
+    #if os(OSX)
+    system = "macOS"
+    #elseif os(iOS)
+    system = "iOS"
+    #elseif os(watchOS)
+    system = "watchOS"
+    #elseif os(tvOS)
+    system = "tvOS"
+    #elseif os(Linux)
+    system = "Linux"
+    #endif
+    let systemVersion = ProcessInfo().operatingSystemVersion
+    components.append("\(system)/\(systemVersion.majorVersion).\(systemVersion.minorVersion).\(systemVersion.patchVersion)")
+    
+    let chip: String
+    #if arch(x86_64)
+    chip = "x86_64"
+    #elseif arch(arm)
+    chip = "arm"
+    #elseif arch(arm64)
+    chip = "arm64"
+    #elseif arch(i386)
+    chip = "i386"
+    #endif
+    components.append("(\(chip))")
+    
+    return components.joined(separator: " ")
+}()
 
 protocol ReentrantImageDownloader {
     func downloadImage(with url: URL, completion: ImageDownloadCompletionBlock?) -> Void
@@ -78,6 +130,7 @@ class ImageDownloader: NSObject, ReentrantImageDownloader, URLSessionDataDelegat
         var request = URLRequest(url: url)
         request.allHTTPHeaderFields = self.headers
         request.cachePolicy = .reloadIgnoringCacheData
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         return request
     }
 
